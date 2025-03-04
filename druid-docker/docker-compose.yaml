@@ -1,0 +1,119 @@
+version: "3.7"
+
+services:
+  # --------------------------------------------------
+  # Zookeeper
+  # --------------------------------------------------
+  zookeeper:
+    image: zookeeper:3.8
+    container_name: druid-zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=zookeeper:2888:3888
+
+  # --------------------------------------------------
+  # Coordinator + Overlord
+  # --------------------------------------------------
+  druid-coordinator-overlord:
+    image: apache/druid:32.0.0
+    container_name: druid-coordinator-overlord
+    depends_on:
+      - zookeeper
+    volumes:
+      - ./druid/coordinator-overlord/runtime.properties:/opt/druid/conf/druid/coordinator-overlord/runtime.properties
+    environment:
+      # AWS Credentials (substitute your real keys or use secrets)
+      AWS_ACCESS_KEY_ID: "MX0UOYD6P0B8JLO5O1TS"
+      AWS_SECRET_ACCESS_KEY: "bP4l4RWYcsx3E89zDfvEw6FiHo58FUOs1pLrGXIc"
+      DRUID_XMX: "1g"  # Maximum heap size
+      DRUID_XMS: "1g"  # Initial heap size
+    ports:
+      - "8081:8081"  # Overlord port
+      - "8082:8082"  # Coordinator port
+    command: ["coordinator"]
+
+  # --------------------------------------------------
+  # Broker
+  # --------------------------------------------------
+  druid-broker:
+    image: apache/druid:32.0.0
+    container_name: druid-broker
+    depends_on:
+      - zookeeper
+      - druid-coordinator-overlord
+    volumes:
+      - ./druid/broker/runtime.properties:/opt/druid/conf/druid/broker/runtime.properties
+    environment:
+      AWS_ACCESS_KEY_ID: "MX0UOYD6P0B8JLO5O1TS"
+      AWS_SECRET_ACCESS_KEY: "bP4l4RWYcsx3E89zDfvEw6FiHo58FUOs1pLrGXIc"
+      DRUID_XMX: "1g"  # Maximum heap size
+      DRUID_XMS: "1g"  # Initial heap size
+    ports:
+      - "8083:8083"  # Explicitly map the port for simplicity
+    command: ["broker"]
+    # deploy: 
+    #   replicas: 2  # Scale the broker to 2 containers 
+    #   restart_policy: 
+    #     condition: on-failure 
+
+  # --------------------------------------------------
+  # Historical
+  # --------------------------------------------------
+  druid-historical:
+    image: apache/druid:32.0.0
+    container_name: druid-historical
+    depends_on:
+      - zookeeper
+      - druid-coordinator-overlord
+    volumes:
+      - ./druid/historical/runtime.properties:/opt/druid/conf/druid/historical/runtime.properties
+      - historical-segments:/opt/druid/segments
+    environment:
+      AWS_ACCESS_KEY_ID: "MX0UOYD6P0B8JLO5O1TS"
+      AWS_SECRET_ACCESS_KEY: "bP4l4RWYcsx3E89zDfvEw6FiHo58FUOs1pLrGXIc"
+      DRUID_XMX: "1g"  # Maximum heap size
+      DRUID_XMS: "1g"  # Initial heap size
+    ports:
+      - "8084:8084"
+    command: ["historical"]
+
+  # --------------------------------------------------
+  # MiddleManager
+  # --------------------------------------------------
+  druid-middlemanager:
+    image: apache/druid:32.0.0
+    container_name: druid-middlemanager
+    depends_on:
+      - zookeeper
+      - druid-coordinator-overlord
+    volumes:
+      - ./druid/middlemanager/runtime.properties:/opt/druid/conf/druid/middleManager/runtime.properties
+    environment:
+      AWS_ACCESS_KEY_ID: "MX0UOYD6P0B8JLO5O1TS"
+      AWS_SECRET_ACCESS_KEY: "bP4l4RWYcsx3E89zDfvEw6FiHo58FUOs1pLrGXIc"
+    ports:
+      - "8091:8091"
+    command: ["middleManager"]
+
+  # --------------------------------------------------
+  # Router
+  # --------------------------------------------------
+  druid-router:
+    image: apache/druid:32.0.0
+    container_name: druid-router
+    depends_on:
+      - druid-coordinator-overlord
+      - druid-broker
+    volumes:
+      - ./druid/router/runtime.properties:/opt/druid/conf/druid/router/runtime.properties
+    environment:
+      AWS_ACCESS_KEY_ID: "MX0UOYD6P0B8JLO5O1TS"
+      AWS_SECRET_ACCESS_KEY: "bP4l4RWYcsx3E89zDfvEw6FiHo58FUOs1pLrGXIc"
+    ports:
+      - "8888:8888"
+    command: ["router"]
+
+volumes:
+  historical-segments:
