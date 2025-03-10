@@ -1,0 +1,82 @@
+{
+  "name": "driif-fleet-management",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@headlessui/react": "^2.2.0",
+    "@heroicons/react": "^2.2.0",
+    "@react-google-maps/api": "^2.20.6",
+    "@reduxjs/toolkit": "^2.6.0",
+    "@tailwindcss/forms": "^0.5.10",
+    "@testing-library/jest-dom": "^5.14.1",
+    "@testing-library/react": "^13.0.0",
+    "@testing-library/user-event": "^13.2.1",
+    "axios": "^1.7.9",
+    "date-fns": "2.22.1",
+    "dayjs": "^1.11.13",
+    "echarts": "^5.6.0",
+    "echarts-for-react": "^3.0.2",
+    "env-cmd": "^10.1.0",
+    "formik": "^2.4.6",
+    "jwt-decode": "^4.0.0",
+    "notistack": "^3.0.1",
+    "primereact": "^10.9.2",
+    "react": "^19.0.0",
+    "react-date-range": "^2.0.1",
+    "react-dom": "^19.0.0",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^7.1.1",
+    "react-scripts": "5.0.1",
+    "redux": "^5.0.1",
+    "redux-persist": "^6.0.0",
+    "video.js": "^8.21.0",
+    "web-vitals": "^2.1.0",
+    "yup": "^1.6.1"
+  },
+  "scripts": {
+    "start": "env-cmd -f .env.dev react-scripts start",
+    "start:dev": "env-cmd -f .env.dev react-scripts start",
+    "start:prod": "env-cmd -f .env.prod react-scripts start",
+    "build:dev": "env-cmd -f .env.dev react-scripts --max_old_space_size=8000 build",
+    "build:prod": "env-cmd -f .env.prod react-scripts --max_old_space_size=8000 build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "autoprefixer": "^10.4.20",
+    "css-loader": "^6.8.1",
+    "globals": "^15.14.0",
+    "postcss": "^8.4.49",
+    "resolve-url-loader": "^5.0.0",
+    "sass": "^1.84.0",
+    "sass-loader": "^16.0.4",
+    "style-loader": "^3.3.3",
+    "tailwind-scrollbar": "^3.1.0",
+    "tailwindcss": "^3.4.17",
+    "webpack": "^5.97.1"
+  },
+  "resolutions": {
+    "sass-loader": "^16.0.4"
+  }
+}

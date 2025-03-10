@@ -1,0 +1,57 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-web
+  namespace: web
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/from-to-www-redirect: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    # nginx.ingress.kubernetes.io/configuration-snippet: |
+    #   try_files $uri $uri/ /index.html;
+    # nginx.ingress.kubernetes.io/configuration-snippet: |
+    #   try_files $uri $uri/ /dashboard;
+spec:
+  tls:
+  - hosts:
+    - web.driif.ai  # Replace with your domain
+    secretName: web-tls
+  rules:
+  - host: web.driif.ai  # Replace with your domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: web-app
+            port:
+              number: 80
+
+      # - path: /login
+      #   pathType: Prefix
+      #   backend:
+      #     service:
+      #       name: web-app
+      #       port:
+      #         number: 80
+
+      # - path: /dashboard
+      #   pathType: Prefix
+      #   backend:
+      #     service:
+      #       name: web-app
+      #       port:
+      #         number: 80
+
+      # - path: /.*  # Catch-all route for all other paths
+      #   pathType: Prefix
+      #   backend:
+      #     service:
+      #       name: web-app-service
+      #       port:
+      #         number: 80
+      

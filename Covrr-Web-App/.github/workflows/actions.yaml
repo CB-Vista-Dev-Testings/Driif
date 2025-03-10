@@ -1,0 +1,143 @@
+name: Build and Deploy to Civo Kubernetes
+
+on:
+  push:
+    branches:
+      - main # Triggers on push to this specific branch
+
+env:
+  HARBOR_URL: ${{ secrets.HARBOR_URL }}
+  HARBOR_PROJECT: ${{ secrets.HARBOR_PROJECT }}
+  IMAGE_NAME: ${{ secrets.IMAGE_NAME }}
+  HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
+  HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
+  IMAGE_URL: ${{ secrets.IMAGE_URL }} 
+  manifest_path: manifestfiles
+  SLACK_WEBHOOK_URL: https://hooks.slack.com/services/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
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-24.04
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ secrets.IMAGE_NAME }}:latest .
+
+      - name: Generate image tag
+        id: tag
+        run: |
+          BRANCH=${GITHUB_REF#refs/heads/}
+          SANITIZED_BRANCH=$(echo "$BRANCH" | sed 's/\//-/g')
+          COMMIT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          CURRENT_DATE=$(date +%Y%m%d)
+          IMAGE_TAG="${SANITIZED_BRANCH}-${COMMIT_SHA}-${CURRENT_DATE}"
+          IMAGE_URL_CLEAN=$(echo "${{ secrets.IMAGE_URL }}" | sed 's:/*$::')
+          HARBOR_PROJECT_CLEAN=$(echo "${{ secrets.HARBOR_PROJECT }}" | sed 's:^/*::')
+          FULL_IMAGE_PATH="${IMAGE_URL_CLEAN}/${HARBOR_PROJECT_CLEAN}/${{ secrets.IMAGE_NAME }}:${IMAGE_TAG}"
+
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+          echo "FULL_IMAGE_PATH=$FULL_IMAGE_PATH" >> $GITHUB_ENV
+          echo "Sanitized FULL_IMAGE_PATH: $FULL_IMAGE_PATH"
+
+      - name: Test Harbor connectivity
+        run: |
+          curl -v ${{ env.HARBOR_URL }}/v2/ || echo "Failed to connect to Harbor"
+
+      - name: Log in to Harbor
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.HARBOR_URL }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+
+      - name: Tag Docker image
+        run: |
+          echo "Tagging Docker Image: ${{ secrets.IMAGE_NAME }}:latest -> ${{ env.FULL_IMAGE_PATH }}"
+          docker tag ${{ secrets.IMAGE_NAME }}:latest ${{ env.FULL_IMAGE_PATH }}
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.FULL_IMAGE_PATH }}
+
+      - name: Install kubectl
+        run: |
+          curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x ./kubectl
+          sudo mv ./kubectl /usr/local/bin/kubectl
+          kubectl version --client
+
+      - name: Set up KUBECONFIG for Civo
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Check Civo Kubernetes access
+        run: |
+          kubectl get nodes
+          kubectl get pods -A
+
+      - name: List manifest files
+        run: |
+          ls -l ${{ env.manifest_path }}
+
+      - name: Update image tag in manifest
+        run: |
+          echo "FULL_IMAGE_PATH: ${{ env.FULL_IMAGE_PATH }}"
+          echo "Original deployment.yaml:"
+          cat ${{ env.manifest_path }}/deployment.yaml
+
+          sed -i "s|NEW_HARBOR_IMAGE|${{ env.FULL_IMAGE_PATH }}|g" ${{ env.manifest_path }}/deployment.yaml
+
+          echo "Updated deployment.yaml:"
+          cat ${{ env.manifest_path }}/deployment.yaml 
+
+      - name: Apply updated manifest to Civo Kubernetes
+        run: |
+          kubectl apply -f ${{ env.manifest_path }}/deployment.yaml
+
+      # - name: Wait for deployment to stabilize
+      #   run: |
+      #     kubectl rollout status deployment/covrr-push-api --timeout=150s
+
+      # - name: Perform health checks
+      #   run: |
+      #     ENDPOINT="${{ env.APP_ENDPOINT }}"
+      #     MAX_ATTEMPTS=10
+      #     ATTEMPT=0
+      #     SUCCESS=true
+
+      #     while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+      #       STATUS_CODE=$(curl -o /dev/null -s -w "%{http_code}" "$ENDPOINT")
+
+      #       if [ "$STATUS_CODE" -ne 200 ]; then
+      #         echo "Health check failed (Attempt $((ATTEMPT+1))/$MAX_ATTEMPTS): Status Code = $STATUS_CODE"
+      #         SUCCESS=false
+      #         break
+      #       fi
+
+      #       echo "Health check passed (Attempt $((ATTEMPT+1))/$MAX_ATTEMPTS): Status Code = $STATUS_CODE"
+      #       sleep 1
+      #       ATTEMPT=$((ATTEMPT+1))
+      #     done
+
+      #     if [ "$SUCCESS" = false ]; then
+      #       echo "Deployment failed. Rolling back..."
+      #       exit 1
+      #     else
+      #       echo "All health checks passed. Deployment successful."
+      #     fi
+
+      - name: Notify failure to Slack
+        if: always() && job.status == 'failure'
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+            -d '{"text": "Deployment failed! Please check the logs for details."}' \
+            ${{ env.SLACK_WEBHOOK_URL }}
