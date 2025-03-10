@@ -1,0 +1,89 @@
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: covrr-push-api-secret 
+#   namespace: dev
+# type: Opaque
+# data:
+#   PROJECT_NAME: IkRyaWlmIEppbWkgUHVzaC1BUEki
+#   API_V1_STR: L2FwaS92MQ==  # Base64 encoded
+#   SECRET_KEY: WWlydTJyWHUzcGtsaHBDUzRtMGgtYUc4OE5fakhZa0NtbWtuMVByWlZXUQ==
+#   DOMAIN: bG9jYWxob3N0  # Base64 encoded
+#   ENVIRONMENT: ZGV2 # Base64 encoded
+#   REDIS_HOST:  cmVkaXMtc3Zj # Base64 encoded
+#   REDIS_PORT: NjM3OQ==  # Base64 encoded
+#   LOCAL_REDIS: dHJ1ZQ==  # Base64 encoded
+#   LOG_TO_CONSOLE: VHJ1ZQ==  # Base64 encoded
+#   LOG_LEVEL: SU5GTw== # Base64 encoded
+
+--- 
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-config
+  namespace: dev  # Change if needed
+data:
+  PROJECT_NAME: "Driif Jimi Push-API"
+  API_V1_STR: "/api/v1"
+  SECRET_KEY: "Yiru2rXu3pklhpCS4m0h-aG88N_jHYkCmmkn1PrZVWQ"
+  DOMAIN: "localhost"
+  ENVIRONMENT: "dev"
+
+  REDIS_HOST: "74.220.21.48"
+  REDIS_PORT: "6379"
+  REDIS_PASSWORD: "redis12345"
+  REDIS_PASSWORD_REQUIRED: "True"
+
+  # Logging settings
+  LOG_TO_CONSOLE: "True"
+  LOG_LEVEL: "INFO"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: dev
+  name: covrr-push-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: covrr-push-api
+  template:
+    metadata:
+      labels:
+        app: covrr-push-api
+    spec:
+      imagePullSecrets:
+        - name: harbor-registry-cred
+      containers:
+        - name: covrr-push-api-container
+          image: NEW_HARBOR_IMAGE
+          resources:
+            requests:
+              memory: "500Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1"
+          ports: 
+            - containerPort: 8000  # Replace with the port your app listens on
+          envFrom:
+          - configMapRef:
+              name: my-config 
+   
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: dev
+  name: covrr-push-api
+  labels:
+    app: covrr-push-api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000  # The port on which the Service will be exposed internally
+      targetPort: 8000  # The port on which the container is listening
+  selector:
+    app: covrr-push-api  # Matches the labels of the Pods created by the Deployment
